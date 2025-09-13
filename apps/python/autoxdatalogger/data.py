@@ -115,8 +115,8 @@ class DataStorage:
                     ac.log("looking for start lat long ... ")
                     # find the direction of travel between the two points
                     angle_of_travel = self.find_angle([self.pos_xs[idx-1], self.pos_ys[idx-1]], [self.pos_xs[idx], self.pos_ys[idx]])
-                    self.start_lat_a, self.start_long_a = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (math.pi / 2), 0.15)
-                    self.start_lat_b, self.start_long_b = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (3 * math.pi / 2), 0.15)
+                    self.start_lat_a, self.start_long_a = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (math.pi / 2), 0.05)
+                    self.start_lat_b, self.start_long_b = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (3 * math.pi / 2), 0.05)
                     self.found_start = True
                     ac.log("found start lat long!")
 
