@@ -7,8 +7,8 @@ from data import DataStorage
 telemetry_data = DataStorage()
 
 def acMain(ac_version):
-    appWindow = ac.newApp("AutoX Data Logger")
-    ac.setSize(appWindow, 200, 200)
+    app_window = ac.newApp("AutoX Data Logger")
+    ac.setSize(app_window, 200, 200)
     return "AutoX Data Logger"
 
 def acUpdate(dT):

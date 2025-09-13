@@ -9,6 +9,7 @@ from textwrap import dedent
 # lincoln airpark center lat long 40.844807530029286, -96.76903793050018
 lincoln_lat = 40.844807530029286
 lincoln_long = -96.76903793050018
+lincoln_alt = 355.0
 
 
 class DataStorage:
@@ -32,6 +33,7 @@ class DataStorage:
         self.steerings = []
         self.throttles = []
         self.total_times = []
+        self.heights = []
 
         # time tracking
         self.update_interval = 0.1
@@ -39,14 +41,18 @@ class DataStorage:
         self.cur_time = 0.0
 
         # track whether we found start/finish lines
-        self.start_lat = 0
-        self.start_long = 0
-        self.finish_lat = 0
-        self.finish_long = 0
+        self.start_lat_a = 0
+        self.start_long_a = 0
+        self.start_lat_b = 0
+        self.start_long_b = 0
+        self.finish_lat_a = 0
+        self.finish_long_a = 0
+        self.finish_lat_b = 0
+        self.finish_long_b = 0
         self.found_start = False
         self.found_finish = False
 
-        self.parsed_data = "[data]\n"
+        self.parsed_data = "\n[data]\n"
 
     def update_data(self, dT):
         self.cur_time += dT
@@ -65,6 +71,7 @@ class DataStorage:
             # convert position to lat long
             cur_pos = ac.getCarState(self.car_id, acsys.CS.WorldPosition)
             pos_x = cur_pos[0]
+            pos_z = cur_pos[1] 
             pos_y = cur_pos[2]
             lat, long = self.lat_long_from_meters(pos_x, pos_y, lincoln_lat)
             cur_lat = lincoln_lat + lat
@@ -80,10 +87,11 @@ class DataStorage:
             self.longs.append(cur_long)
             self.pos_xs.append(pos_x)
             self.pos_ys.append(pos_y)
+            self.heights.append(lincoln_alt + pos_z)
             self.runtimes.append(runtime / 1000)
             self.speeds.append(speed)
             self.steerings.append(steering)
-            self.total_times.append(self.cur_time)
+            self.total_times.append(self.parse_time())
             self.throttles.append(throttle)
 
     def parse_data(self):
@@ -92,16 +100,14 @@ class DataStorage:
 
             # Only parse data where we are in the course
             if cur_laptime > 0:
-                #string_time = time.strftime("%H%M%S.%f" time.gmtime())
-                ac.log("{}".format(self.total_times[idx]))
-                ac.log(self.seconds_to_hms(self.total_times[idx]))
                 # sats lat long velocity kmh
-                self.parsed_data += "{sats:03d} {time} {lat:+012.5f} {long:+012.5f} {speed:07.3f}\n".format(
+                self.parsed_data += "{sats:03d} {time} {lat:+012.8f} {long:+012.8f} {speed:07.3f} {height:+09.2f}\n".format(
                     sats=10,
-                    time=self.seconds_to_hms(self.total_times[idx]),
+                    time=self.total_times[idx],
                     lat=self.lats[idx] * 60,
                     long=self.longs[idx] * -60,
-                    speed=self.speeds[idx]
+                    speed=self.speeds[idx],
+                    height=self.heights[idx]
                 )
                 
                 # find the starting line
@@ -109,9 +115,10 @@ class DataStorage:
                     ac.log("looking for start lat long ... ")
                     # find the direction of travel between the two points
                     angle_of_travel = self.find_angle([self.pos_xs[idx-1], self.pos_ys[idx-1]], [self.pos_xs[idx], self.pos_ys[idx]])
-                    self.start_lat, self.start_long = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel, 0.15)
+                    self.start_lat_a, self.start_long_a = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (math.pi / 2), 0.15)
+                    self.start_lat_b, self.start_long_b = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (3 * math.pi / 2), 0.15)
                     self.found_start = True
-                    ac.log("found start lat long ... ")
+                    ac.log("found start lat long!")
 
                 
 
@@ -121,15 +128,25 @@ class DataStorage:
                 # find the direction of travel between the two points
                 angle_of_travel = self.find_angle([self.pos_xs[idx-1], self.pos_ys[idx-1]], [self.pos_xs[idx], self.pos_ys[idx]])
 
-                self.finish_lat, self.finish_long = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel, 0.15)
+                self.finish_lat_a, self.finish_long_a = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (math.pi / 2), 0.05)
+                self.finish_lat_b, self.finish_long_b = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (3 * math.pi / 2), 0.05)
                 self.found_finish = True
-                ac.log("found finish lat long ... ")
+                ac.log("found finish lat long!")
 
         ac.log("{}".format(self.make_header()))
         ac.log(self.parsed_data)
 
+    def parse_time(self):
+        now = datetime.datetime.now()
+        hours = int(now.hour)
+        minutes = int(now.minute)
+        seconds = int(now.second)
+        millis = int(now.microsecond / 1000)
+
+        return "{:02d}{:02d}{:02d}.{:03d}".format(hours, minutes, seconds, millis)
+
     def seconds_to_hms(self, total_seconds):
-        ac.log("parsing time")
+        
         hours = int(total_seconds // 3600)
         minutes = int((total_seconds % 3600) // 60)
         seconds = int(total_seconds % 60)
@@ -164,53 +181,36 @@ class DataStorage:
         return new_lat, new_long
 
     def write_data(self):
+        ac.log("writing files ...")
         user_path = "C:/Users/fmuel/Documents/logs"
         with open(os.path.join(user_path, "test_log.vbo"), 'w') as f:
-            f.write(self.parsed_data)
+            f.write("{}\n{}".format(self.make_header(), self.parsed_data))
+        ac.log("done writing files!")
 
 
     def make_header(self):
-        header = datetime.time.strftime("File created on %d/%m/%Y at %I:%M:%S %p")
-        header += "\r\n"
+        ac.log("making header ...")
+        header = datetime.datetime.now().strftime("File created on %d/%m/%Y at %I:%M:%S %p")
+        header += "\n\n"
         header += "[header]"
-        for col_type in ["satellites", "time", "latitude", "longitude", "velocity kmb"]:
-            header += "\r\n{}".format(col_type)
+        for col_type in ["satellites", "time", "latitude", "longitude", "velocity kmh", "height"]:
+            header += "\n{}".format(col_type)
 
-        header += "\r\n[channel units]\ns\n"
-        header += "\r\n[laptiming]"
+        header += "\n\n[channel units]\ns\n"
+        header += "\n[laptiming]\n"
 
-        header += "\r\nStart        {:+012.5f} {:+012.5f} {:+012.5f} {:+012.5f} ¬  Start / Finish\n".format(
-            self.start_long * -60, self.start_lat * 60, self.finish_long * -60, self.finish_lat * 60
+        header += "Start\t\t{:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} ¬  Start\n".format(
+            self.start_long_a * -60, self.start_lat_a * 60, self.start_long_b * -60, self.start_lat_b * 60
+        )
+        header += "Finish\t\t{:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} ¬  Finish\n".format(
+            self.finish_long_a * -60, self.finish_lat_a * 60, self.finish_long_b * -60, self.finish_lat_b * 60
         )
         
-        header += "\r\n[session data]\nlaps {}\n".format(self.laps[-1])
+        header += "\n[session data]\nlaps {}\n".format(self.laps[-1])
 
-        header += "\r\n[column names]\n"
-        header += " ".join(["sats", "time", "lat", "long", "velocity"])
-        # header = """File created on 07/09/2017 @ 15:58:57
+        header += "\n[column names]\n"
+        header += " ".join(["sats", "time", "lat", "long", "velocity", "height"])
 
-        #     [header]
-        #     satellites
-        #     time
-        #     latitude
-        #     longitude
-        #     velocity kmh
-
-        #     [channel units]
-        #     s
-
-        #     [laptiming]
-        #     Start        {:+012.5f} {:+012.5f} {:+012.5f} {:+012.5f} ¬  Start / Finish
-
-        #     [circuit details]
-        #     country United States
-
-        #     [session data]
-        #     laps {}
-
-        #     [column names]
-        #     sats time lat long velocity
-        # """.format(self.start_long * -60, self.start_lat * 60, self.finish_long * -60, self.finish_lat * 60, self.laps[-1])
-
+        ac.log("done making header!")
         return header
     
