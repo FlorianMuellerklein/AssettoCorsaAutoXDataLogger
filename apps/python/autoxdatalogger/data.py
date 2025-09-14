@@ -32,6 +32,7 @@ class DataStorage:
         self.throttles = []
         self.total_times = []
         self.heights = []
+        self.lateral_gs = []
 
         # time tracking
         self.update_interval = 0.1
@@ -68,6 +69,7 @@ class DataStorage:
             steering = ac.getCarState(self.car_id, acsys.CS.Steer)
             speed = ac.getCarState(self.car_id, acsys.CS.SpeedKMH)
             cur_lap = ac.getCarState(self.car_id, acsys.CS.LapCount)
+            cur_g = ac.getCarState(self.car_id, acsys.CS.AccG)
 
             # convert position to lat long
             cur_pos = ac.getCarState(self.car_id, acsys.CS.WorldPosition)
@@ -84,6 +86,7 @@ class DataStorage:
 
             self.brakes.append(brake)
             self.laps.append(cur_lap)
+            self.lateral_gs.append(cur_g[0])
             self.lats.append(cur_lat)
             self.longs.append(cur_long)
             self.pos_xs.append(pos_x)
@@ -106,7 +109,7 @@ class DataStorage:
                 angle_of_travel = self.find_angle([self.lats[idx-1], self.longs[idx-1]], [self.lats[idx], self.longs[idx]])
 
                 # sats lat long velocity kmh
-                self.parsed_data += "{sats:03d} {time} {lat:+012.8f} {long:+012.8f} {speed:07.3f} {height:+09.2f} {heading:05.2f} {steer:05.2f} {brake:.2f} {throttle:.2f}\n".format(
+                self.parsed_data += "{sats:03d} {time} {lat:+012.8f} {long:+012.8f} {speed:07.3f} {height:+09.2f} {heading:05.2f} {steer:05.2f} {brake:.2f} {throttle:.2f} {lat_g:04.2f}\n".format(
                     sats=16,
                     time=self.total_times[idx],
                     lat=self.lats[idx] * 60,
@@ -116,7 +119,8 @@ class DataStorage:
                     heading=(math.degrees(angle_of_travel) + 360) % 360,
                     steer=self.steerings[idx],
                     brake=self.brakes[idx],
-                    throttle=self.throttles[idx]
+                    throttle=self.throttles[idx],
+                    lat_g=self.lateral_gs[idx]
                 )
                 
                 # find the starting line
@@ -221,7 +225,7 @@ class DataStorage:
         header = datetime.datetime.now().strftime("File created on %d/%m/%Y at %I:%M:%S %p")
         header += "\n\n"
         header += "[header]"
-        for col_type in ["satellites", "time", "latitude", "longitude", "velocity kmh", "height", "heading", "Steering", "Brake", "Throttle"]:
+        for col_type in ["satellites", "time", "latitude", "longitude", "velocity kmh", "height", "heading", "Steering", "Brake", "Throttle", "Lateral G"]:
             header += "\n{}".format(col_type)
 
         # header += "\n\n[channel units]\ns\n"
@@ -237,7 +241,7 @@ class DataStorage:
         header += "\n[session data]\nlaps {}\n".format(self.laps[-1])
 
         header += "\n[column names]\n"
-        header += " ".join(["sats", "time", "lat", "long", "velocity", "height", "heading", "steering", "brake", "throttle"])
+        header += " ".join(["sats", "time", "lat", "long", "velocity", "height", "heading", "steering", "brake", "throttle", "lateralG"])
 
         ac.log("done making header!")
         return header
