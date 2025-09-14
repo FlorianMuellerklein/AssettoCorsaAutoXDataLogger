@@ -4,9 +4,9 @@ import datetime
 import math
 import os
 
-# lincoln airpark center lat long 40.844807530029286, -96.76903793050018
-lincoln_lat = 40.844807530029286
-lincoln_long = -96.76903793050018
+# lincoln airpark center lat long 40.84569112010162, -96.77115083889879
+lincoln_lat = 40.84569112010162
+lincoln_long = -96.77115083889879
 lincoln_alt = 355.0
 
 
@@ -113,7 +113,7 @@ class DataStorage:
                     long=self.longs[idx] * -60,
                     speed=self.speeds[idx],
                     height=self.heights[idx],
-                    heading=angle_of_travel,
+                    heading=math.degrees(angle_of_travel),
                     steer=self.steerings[idx],
                     brake=self.brakes[idx],
                     throttle=self.throttles[idx]
@@ -213,7 +213,7 @@ class DataStorage:
         header = datetime.datetime.now().strftime("File created on %d/%m/%Y at %I:%M:%S %p")
         header += "\n\n"
         header += "[header]"
-        for col_type in ["satellites", "time", "latitude", "longitude", "velocity kmh", "height", "heading", "steering", "brake", "throttle"]:
+        for col_type in ["satellites", "time", "latitude", "longitude", "velocity kmh", "height", "heading", "Steering", "Brake", "Throttle"]:
             header += "\n{}".format(col_type)
 
         # header += "\n\n[channel units]\ns\n"
