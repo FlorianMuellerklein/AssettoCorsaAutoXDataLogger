@@ -71,9 +71,9 @@ class DataStorage:
 
             # convert position to lat long
             cur_pos = ac.getCarState(self.car_id, acsys.CS.WorldPosition)
-            pos_x = cur_pos[0]
+            pos_x = cur_pos[2]
             pos_z = cur_pos[1] 
-            pos_y = cur_pos[2]
+            pos_y = cur_pos[0]
             lat, long = self.lat_long_from_meters(pos_x, pos_y, lincoln_lat)
             cur_lat = lincoln_lat + lat
             cur_long = lincoln_long + long
