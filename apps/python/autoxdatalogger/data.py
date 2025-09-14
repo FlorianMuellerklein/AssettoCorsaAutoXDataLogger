@@ -103,7 +103,7 @@ class DataStorage:
             # Only parse data where we are in the course
             if cur_laptime > 0 and idx > 1:
                 # find the direction of travel between the two points
-                angle_of_travel = self.find_angle([self.pos_xs[idx-1], self.pos_ys[idx-1]], [self.pos_xs[idx], self.pos_ys[idx]])
+                angle_of_travel = self.find_angle([self.lats[idx-1], self.longs[idx-1]], [self.lats[idx], self.longs[idx]])
 
                 # sats lat long velocity kmh
                 self.parsed_data += "{sats:03d} {time} {lat:+012.8f} {long:+012.8f} {speed:07.3f} {height:+09.2f} {heading:05.2f} {steer:05.2f} {brake:.2f} {throttle:.2f}\n".format(
@@ -113,7 +113,7 @@ class DataStorage:
                     long=self.longs[idx] * -60,
                     speed=self.speeds[idx],
                     height=self.heights[idx],
-                    heading=math.degrees(angle_of_travel),
+                    heading=(math.degrees(angle_of_travel) + 360) % 360,
                     steer=self.steerings[idx],
                     brake=self.brakes[idx],
                     throttle=self.throttles[idx]
@@ -134,7 +134,7 @@ class DataStorage:
             if idx > 1 and self.laps[idx-1] < self.laps[idx] and not self.found_finish:
                 ac.log("looking for finish lat long ... ")
                 # find the direction of travel between the two points
-                angle_of_travel = self.find_angle([self.pos_xs[idx-1], self.pos_ys[idx-1]], [self.pos_xs[idx], self.pos_ys[idx]])
+                angle_of_travel = self.find_angle([self.lats[idx-1], self.longs[idx-1]], [self.lats[idx], self.longs[idx]])
 
                 self.finish_lat_a, self.finish_long_a = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (math.pi / 2), 10)
                 self.finish_lat_b, self.finish_long_b = self.create_start_finish_line(self.lats[idx], self.longs[idx], angle_of_travel + (3 * math.pi / 2), 10)
@@ -174,8 +174,15 @@ class DataStorage:
         return new_lat, new_long
 
     def find_angle(self, point_a, point_b):
-        y_diff = point_b[1] - point_a[1]
-        x_diff = point_b[0] - point_a[0]
+        # if using meters
+        #y_diff = point_b[1] - point_a[1]
+        #x_diff = point_b[0] - point_a[0]
+        lat_a = math.radians(point_a[0])
+        long_a = math.radians(point_a[1])
+        lat_b = math.radians(point_b[0])
+        long_b = math.radians(point_b[1])
+        y_diff = math.cos(lat_b) * math.sin(long_b - long_a)
+        x_diff = math.cos(lat_a) * math.sin(lat_b) - math.sin(lat_a) * math.cos(lat_b) * math.cos(long_b - long_a)
 
         return math.atan2(y_diff, x_diff) # radians
 
@@ -190,8 +197,9 @@ class DataStorage:
 
     def write_data(self):
         ac.log("writing files ...")
-        if not os.path.exists("C:/ACAutoXDataLogs"):
-            os.makedirs("C:/ACAutoXDataLogs")
+        user_path = "C:/ACAutoXDataLogs"
+        if not os.path.exists(user_path):
+            os.makedirs(user_path)
 
         time_now = datetime.datetime.now()
         save_file = "AutoXLog_{year}-{month}-{day}_{hour}-{minute}.vbo".format(
@@ -202,7 +210,7 @@ class DataStorage:
             minute=time_now.minute
         )
 
-        user_path = "C:/ACAutoXDataLogs"
+        
         with open(os.path.join(user_path, save_file), 'w') as f:
             f.write("{}\n{}".format(self.make_header(), self.parsed_data))
         ac.log("done writing files!")
