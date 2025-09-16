@@ -8,9 +8,10 @@ telemetry_data = DataStorage()
 
 def acMain(ac_version):
     app_window = ac.newApp("AXDL")
-    ac.setSize(app_window, 100, 100)
+    ac.setSize(app_window, 75, 75)
     ac.setTitle(app_window, "")
     ac.drawBorder(app_window, 0)
+    ac.setIconPosition(app_window, 0, -50000)
     ac.setBackgroundOpacity(app_window, 0)
     ac.setBackgroundTexture(app_window, "apps/python/autoxdatalogger/img/appicon.png")
     return "AXDL"

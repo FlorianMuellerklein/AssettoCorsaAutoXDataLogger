@@ -35,7 +35,7 @@ class DataStorage:
         self.lateral_gs = []
 
         # time tracking
-        self.update_interval = 0.1
+        self.update_interval = 0.05
         self.last_update = 0
         self.cur_time = 0.0
 
@@ -52,7 +52,10 @@ class DataStorage:
         self.found_finish = False
 
         # constants for calculations
-        self.earth_radius = 6378000
+        self.earth_radius = 6378000.0
+
+        # if we are on a circuit instead of point2point
+        self.found_circuit = False
 
         self.parsed_data = "\n[data]\n"
 
@@ -84,24 +87,25 @@ class DataStorage:
             #     speed, runtime / 1000, self.cur_time, throttle, brake, steering, pos_x, pos_y, cur_lat, cur_long
             # ))
 
-            self.brakes.append(brake)
-            self.laps.append(cur_lap)
-            self.lateral_gs.append(cur_g[0])
-            self.lats.append(cur_lat)
-            self.longs.append(cur_long)
-            self.pos_xs.append(pos_x)
-            self.pos_ys.append(pos_y)
-            self.heights.append(lincoln_alt + pos_z)
-            self.runtimes.append(runtime / 1000)
-            self.speeds.append(speed)
-            self.steerings.append(steering)
-            self.total_times.append(self.parse_time())
-            self.throttles.append(throttle)
+            # only record data if we are in a valid lap to save memory
+            if runtime > 0:
+                self.brakes.append(brake)
+                self.laps.append(cur_lap)
+                self.lateral_gs.append(cur_g[0])
+                self.lats.append(cur_lat)
+                self.longs.append(cur_long)
+                self.pos_xs.append(pos_x)
+                self.pos_ys.append(pos_y)
+                self.heights.append(lincoln_alt + pos_z)
+                self.runtimes.append(runtime / 1000)
+                self.speeds.append(speed)
+                self.steerings.append(steering)
+                self.total_times.append(self.parse_time())
+                self.throttles.append(throttle)
 
     def parse_data(self):
         ac.log("parsing data ... ")
         for idx, cur_laptime in enumerate(self.runtimes):
-
 
             # Only parse data where we are in the course
             if cur_laptime > 0 and idx > 1:
@@ -145,6 +149,16 @@ class DataStorage:
                 self.found_finish = True
                 ac.log("found finish lat long!")
 
+            
+        if self.found_start and self.found_finish:
+            start_finish_distance = self.lat_long_distance(
+                [(self.start_lat_a + self.start_lat_b) / 2, (self.start_long_a + self.start_long_b) / 2],
+                [(self.finish_lat_a + self.finish_lat_b) / 2, (self.finish_long_a + self.finish_long_b) / 2]
+            )
+            if abs(start_finish_distance) < 30:
+                ac.log("saving as a circuit")
+                self.found_circuit = True
+
         ac.log("{}".format(self.make_header()))
         ac.log(self.parsed_data)
 
@@ -154,15 +168,6 @@ class DataStorage:
         minutes = int(now.minute)
         seconds = int(now.second)
         millis = int(now.microsecond / 1000)
-
-        return "{:02d}{:02d}{:02d}.{:03d}".format(hours, minutes, seconds, millis)
-
-    def seconds_to_hms(self, total_seconds):
-        
-        hours = int(total_seconds // 3600)
-        minutes = int((total_seconds % 3600) // 60)
-        seconds = int(total_seconds % 60)
-        millis = int((total_seconds % 1) * 1000)
 
         return "{:02d}{:02d}{:02d}.{:03d}".format(hours, minutes, seconds, millis)
 
@@ -176,6 +181,26 @@ class DataStorage:
         new_long = (dx / earth_radius) * (180.0 / math.pi) / math.cos(self.degree_2_radians(start_lat))
 
         return new_lat, new_long
+    
+    def lat_long_distance(self, point_a, point_b):
+        ac.log("Calculating distance between start and finish lines")
+        lat_a = math.radians(point_a[0])
+        long_a = math.radians(point_a[1])
+        lat_b = math.radians(point_b[0])
+        long_b = math.radians(point_b[1])
+        ac.log("{} {} {} {}".format(lat_a, long_a, lat_b, long_b))
+
+        lat_delta = lat_b - lat_a
+        long_delta = long_b - long_a
+        ac.log("{} {}".format(lat_delta, long_delta))
+
+        a = math.sin(lat_delta / 2) * math.sin(lat_delta / 2) + math.cos(lat_a) * math.cos(lat_b) * math.sin(long_delta / 2) * math.sin(long_delta / 2)
+        ac.log("{}".format(a))
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        ac.log("{}".format(c))
+        ac.log("distance {}".format(self.earth_radius * c))
+
+        return self.earth_radius * c
 
     def find_angle(self, point_a, point_b):
         # if using meters
@@ -213,7 +238,6 @@ class DataStorage:
             hour=time_now.hour,
             minute=time_now.minute
         )
-
         
         with open(os.path.join(user_path, save_file), 'w') as f:
             f.write("{}\n{}".format(self.make_header(), self.parsed_data))
@@ -231,12 +255,17 @@ class DataStorage:
         # header += "\n\n[channel units]\ns\n"
         header += "\n\n[laptiming]\n"
 
-        header += "Start        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} ¬   Start\n".format(
-            self.start_long_a * -60, self.start_lat_a * 60, self.start_long_b * -60, self.start_lat_b * 60
-        )
-        header += "Finish        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} ¬  Finish\n".format(
-            self.finish_long_a * -60, self.finish_lat_a * 60, self.finish_long_b * -60, self.finish_lat_b * 60
-        )
+        if not self.found_circuit:
+            header += "Start        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} \u00ac  Start\n".format(
+                self.start_long_a * -60, self.start_lat_a * 60, self.start_long_b * -60, self.start_lat_b * 60
+            )
+            header += "Finish        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} \u00ac  Finish\n".format(
+                self.finish_long_a * -60, self.finish_lat_a * 60, self.finish_long_b * -60, self.finish_lat_b * 60
+            )
+        else:
+            header += "Start        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} \u00ac  Start / Finish\n".format(
+                self.start_long_a * -60, self.start_lat_a * 60, self.start_long_b * -60, self.start_lat_b * 60
+            )
         
         header += "\n[session data]\nlaps {}\n".format(self.laps[-1])
 
