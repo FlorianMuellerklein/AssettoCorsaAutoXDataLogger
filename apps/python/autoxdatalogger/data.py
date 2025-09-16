@@ -4,9 +4,9 @@ import datetime
 import math
 import os
 
-# lincoln airpark center lat long 40.84569112010162, -96.77115083889879
-lincoln_lat = 40.84569112010162
-lincoln_long = -96.77115083889879
+# lincoln airpark center lat long 40.84489462794975, -96.76910629089815
+lincoln_lat = 40.8448946279497
+lincoln_long = -96.76910629089815
 lincoln_alt = 355.0
 
 
@@ -88,27 +88,27 @@ class DataStorage:
             # ))
 
             # only record data if we are in a valid lap to save memory
-            if runtime > 0:
-                self.brakes.append(brake)
-                self.laps.append(cur_lap)
-                self.lateral_gs.append(cur_g[0])
-                self.lats.append(cur_lat)
-                self.longs.append(cur_long)
-                self.pos_xs.append(pos_x)
-                self.pos_ys.append(pos_y)
-                self.heights.append(lincoln_alt + pos_z)
-                self.runtimes.append(runtime / 1000)
-                self.speeds.append(speed)
-                self.steerings.append(steering)
-                self.total_times.append(self.parse_time())
-                self.throttles.append(throttle)
+            #if runtime > 0:
+            self.brakes.append(brake)
+            self.laps.append(cur_lap)
+            self.lateral_gs.append(cur_g[0])
+            self.lats.append(cur_lat)
+            self.longs.append(cur_long)
+            self.pos_xs.append(pos_x)
+            self.pos_ys.append(pos_y)
+            self.heights.append(lincoln_alt + pos_z)
+            self.runtimes.append(runtime / 1000)
+            self.speeds.append(speed)
+            self.steerings.append(steering)
+            self.total_times.append(self.parse_time())
+            self.throttles.append(throttle)
 
     def parse_data(self):
         ac.log("parsing data ... ")
         for idx, cur_laptime in enumerate(self.runtimes):
 
             # Only parse data where we are in the course
-            if cur_laptime > 0 and idx > 1:
+            if idx > 1:
                 # find the direction of travel between the two points
                 angle_of_travel = self.find_angle([self.lats[idx-1], self.longs[idx-1]], [self.lats[idx], self.longs[idx]])
 
@@ -150,14 +150,14 @@ class DataStorage:
                 ac.log("found finish lat long!")
 
             
-        if self.found_start and self.found_finish:
-            start_finish_distance = self.lat_long_distance(
-                [(self.start_lat_a + self.start_lat_b) / 2, (self.start_long_a + self.start_long_b) / 2],
-                [(self.finish_lat_a + self.finish_lat_b) / 2, (self.finish_long_a + self.finish_long_b) / 2]
-            )
-            if abs(start_finish_distance) < 30:
-                ac.log("saving as a circuit")
-                self.found_circuit = True
+        # if self.found_start and self.found_finish:
+        #     start_finish_distance = self.lat_long_distance(
+        #         [(self.start_lat_a + self.start_lat_b) / 2, (self.start_long_a + self.start_long_b) / 2],
+        #         [(self.finish_lat_a + self.finish_lat_b) / 2, (self.finish_long_a + self.finish_long_b) / 2]
+        #     )
+        #     if abs(start_finish_distance) < 30:
+        #         ac.log("saving as a circuit")
+        #         self.found_circuit = True
 
         ac.log("{}".format(self.make_header()))
         ac.log(self.parsed_data)
@@ -256,14 +256,14 @@ class DataStorage:
         header += "\n\n[laptiming]\n"
 
         if not self.found_circuit:
-            header += "Start        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} \u00ac  Start\n".format(
+            header += "Start        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} ¬  Start\n".format(
                 self.start_long_a * -60, self.start_lat_a * 60, self.start_long_b * -60, self.start_lat_b * 60
             )
-            header += "Finish        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} \u00ac  Finish\n".format(
+            header += "Finish        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} ¬  Finish\n".format(
                 self.finish_long_a * -60, self.finish_lat_a * 60, self.finish_long_b * -60, self.finish_lat_b * 60
             )
         else:
-            header += "Start        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} \u00ac  Start / Finish\n".format(
+            header += "Start        {:+012.8f} {:+012.8f} {:+012.8f} {:+012.8f} ¬  Start / Finish\n".format(
                 self.start_long_a * -60, self.start_lat_a * 60, self.start_long_b * -60, self.start_lat_b * 60
             )
         
