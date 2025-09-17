@@ -35,7 +35,7 @@ class DataStorage:
         self.lateral_gs = []
 
         # time tracking
-        self.update_interval = 0.05
+        self.update_interval = 0.1
         self.last_update = 0
         self.cur_time = 0.0
 
